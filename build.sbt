@@ -7,6 +7,8 @@ scalaVersion := "2.12.4"
 val akkaVersion = "2.4.19"
 val akkaHttpVersion = "10.0.9"
 
+mainClass in (Compile, run) := Some("sim.WebServer")
+
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,

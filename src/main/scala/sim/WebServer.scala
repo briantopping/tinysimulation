@@ -40,26 +40,39 @@ class WebServer(workerCount: Int) extends HttpApp with SprayJsonSupport with Act
     implicit val responseFormat = jsonFormat2(Response)
     implicit val timeout: Timeout = Timeout(2.seconds)
 
+    def handleGetUrlRequest(req: Request)(completion: Response => Route): Route = {
+      WebServer.splitter(req.url) match {
+        case Success((nodeID, sequence)) =>
+          onSuccess(workers(nodeID) ? GetUrl(sequence)) {
+            case Success(r: Response) => completion(r)
+            case Failure(t)           => failWith(t)
+          }
+        case Failure(t)                  => failWith(t)
+      }
+    }
+
     handleExceptions(handler) {
-      path("urlshortener") {
+      pathPrefix("urlshortener") {
         get {
-          parameter('url) { key =>
-            WebServer.splitter(key) match {
-              case Success((nodeID, sequence)) =>
-                onSuccess(workers(nodeID) ? GetUrl(sequence)) {
-                  case Success(r: Response) => complete(r)
-                  case Failure(t)           => failWith(t)
-                }
-              case Failure(t)                  => failWith(t)
+          path(Segment) { s =>
+            handleGetUrlRequest(Request(s)) { res =>
+              redirect(res.url, StatusCodes.TemporaryRedirect)
+            }
+          } ~
+          pathEnd {
+            entity(as[Request]) { req =>
+              handleGetUrlRequest(req) { res =>
+                complete(res)
+              }
             }
           }
-        }
-      } ~
-      post {
-        entity(as[Request]) { req =>
-          onSuccess(workers(select(req.url)) ? PostUrl(req.url)) {
-            case Success(r: Response) => complete(r)
-            case Failure(t)           => failWith(t)
+        } ~
+        post {
+          entity(as[Request]) { req =>
+            onSuccess(workers(select(req.url)) ? PostUrl(req.url)) {
+              case Success(r: Response) => complete(r)
+              case Failure(t)           => failWith(t)
+            }
           }
         }
       }
@@ -82,7 +95,8 @@ class WebServer(workerCount: Int) extends HttpApp with SprayJsonSupport with Act
 
 object WebServer extends App {
   private val nodeCount = 10
-  private val pattern   = """(\d+)-(\d+)""".r
+  // FIXME: this pattern is weak
+  private val pattern = """.*(\d+)-(\d+)$""".r
 
   val system = ActorSystem()
   system.actorOf(WebServer.props(nodeCount))
@@ -92,7 +106,7 @@ object WebServer extends App {
     case _                  => Failure(new IllegalArgumentException("Failed to parse ID"))
   }
 
-  def shortener(nodeID: Int, seq: Int): String = s"$nodeID-$seq"
+  def shortener(nodeID: Int, seq: Int): String = s"http://127.0.0.1/$nodeID-$seq"
 
   def props(workers: Int): Props = Props(new WebServer(workers))
 }

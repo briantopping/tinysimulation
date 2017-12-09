@@ -1,7 +1,5 @@
 package sim
 
-import java.util.Random
-
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes
@@ -19,7 +17,6 @@ final case class Response(url: String, nodeID: Int)
 
 class WebServer(workerCount: Int) extends HttpApp with SprayJsonSupport with Actor with ActorLogging {
   private var workers = Vector.empty[ActorRef]
-  private val rnd     = new Random
 
   val handler = ExceptionHandler {
     case e: IllegalArgumentException  => extractUri { uri =>
@@ -79,7 +76,7 @@ class WebServer(workerCount: Int) extends HttpApp with SprayJsonSupport with Act
     }
   }
 
-  def select(url: String): Int = rnd.nextInt(workers.size)
+  def select(url: String): Int = Math.abs(url.hashCode) % workerCount
 
   override def receive: Receive = Actor.emptyBehavior
 

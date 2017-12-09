@@ -9,10 +9,11 @@ To run: Install SBT on your machine (i.e. with `brew install sbt`) then`sbt run`
 ## Questions to Ponder
 
 * **Q**: What strategy would you use to load-balance POST requests across service nodes? <br/>
-**A**: As in the previous version, I ran out of time (too close to phone call rather than hitting 4 hour mark), but my intent was to keep a scoreboard `Map` in the web server that was updated by periodic heartbeats from backend nodes. The heartbeat responses would contain the current number of entires for a backend so the frontend could decide which node to send new POSTs to.
+**A**: The load balancer takes the hash of the URL being POSTed, modulo the number of nodes as a selector for which backend to use. This is not dynamically scalable since the hash outputs would change if the cluster was resized. An optimization is that the hash is modulo some larger number, say 10x the number of expected hardware nodes, and worker actors are distributed equally across whatever hardware nodes are currently available. <br/><br/>
+ Since we do not have multiple hardware nodes, this optimization is superflous in the current implementation. That said, it is in the unfinished "notsotinyurl" implementation built previously (which was far closer to production grade but more complex to casually inspect).
 
 * **Q**: What strategy would you use to load-balance GET requests? <br/>
-**A**: This one is easier, because the node ID is encoded in the shortened URL, dispatching is simple.
+**A**: Because the node ID is encoded in the shortened URL, dispatching is simple.
 
 ## Notes
 * *Friday, December 8, 2017 at 3:01:56 PM* - Added this readme and the `sbt run` command to the current code, which I previously clocked at 2.4 hours.
